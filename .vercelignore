@@ -1,0 +1,7 @@
+.vercel-data
+.pnpm-dlx-cache
+archive/
+*.log
+.pnpm-store
+node_modules
+dist

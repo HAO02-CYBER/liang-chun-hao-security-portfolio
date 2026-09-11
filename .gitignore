@@ -1,0 +1,13 @@
+node_modules/
+dist/
+tmp/
+.pnpm-store/
+.DS_Store
+.env*
+.vercel
+.vercel-data
+.pnpm-dlx-cache
+archive/
+*.log
+design-qa.md
+layout-audit.md
