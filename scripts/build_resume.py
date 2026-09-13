@@ -1,152 +1,251 @@
 from pathlib import Path
 
-from reportlab.lib import colors
+from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfgen import canvas
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "public" / "Liang-Chun-Hao-Resume.pdf"
 
-INK = colors.HexColor("#101722")
-TEXT = colors.HexColor("#28313d")
-MUTED = colors.HexColor("#607086")
-ACCENT = colors.HexColor("#167a8b")
-PALE = colors.HexColor("#eaf4f5")
-LINE = colors.HexColor("#cbd8dd")
+PAPER = HexColor("#F6F6F1")
+INK = HexColor("#10100F")
+MUTED = HexColor("#6E6E67")
+LINE = HexColor("#D8D8D0")
+PANEL = HexColor("#FFFFFF")
+LIME = HexColor("#C7D535")
+ACCENT = HexColor("#7A8608")
+SOFT = HexColor("#E9E9E1")
+WHITE = HexColor("#FFFFFF")
 
 
-def p(text, style):
-    return Paragraph(text, style)
+def split_lines(text, font_name, font_size, max_width):
+    words = text.split()
+    lines = []
+    current = ""
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+        if pdfmetrics.stringWidth(candidate, font_name, font_size) <= max_width:
+            current = candidate
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
 
 
-def section(title, styles):
-    return [
-        Spacer(1, 2.2 * mm),
-        p(title.upper(), styles["section"]),
-        Spacer(1, 1.4 * mm),
+def draw_wrapped(c, text, x, top, max_width, font_name="Helvetica", font_size=8.4,
+                 leading=11.2, color=INK, max_lines=None):
+    lines = split_lines(text, font_name, font_size, max_width)
+    if max_lines is not None:
+        lines = lines[:max_lines]
+    c.setFillColor(color)
+    c.setFont(font_name, font_size)
+    for index, line in enumerate(lines):
+        c.drawString(x, top - font_size - index * leading, line)
+    return top - len(lines) * leading
+
+
+def draw_label(c, text, x, top, color=ACCENT):
+    c.setFillColor(color)
+    c.setFont("Courier-Bold", 7.1)
+    c.drawString(x, top - 7.1, text.upper())
+    return top - 15
+
+
+def draw_rule(c, x, y, width, color=LINE):
+    c.setStrokeColor(color)
+    c.setLineWidth(0.65)
+    c.line(x, y, x + width, y)
+
+
+def draw_metric(c, x, top, width, label, value, detail):
+    c.setFillColor(PANEL)
+    c.roundRect(x, top - 64, width, 64, 6, fill=1, stroke=0)
+    c.setFillColor(MUTED)
+    c.setFont("Courier-Bold", 6.5)
+    c.drawString(x + 12, top - 16, label.upper())
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(x + 12, top - 40, value)
+    c.setFillColor(MUTED)
+    c.setFont("Helvetica", 6.8)
+    c.drawRightString(x + width - 12, top - 38, detail)
+
+
+def draw_entry(c, number, title, description, x, top, width):
+    c.setFillColor(ACCENT)
+    c.setFont("Courier-Bold", 7)
+    c.drawString(x, top - 8, number)
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 9.4)
+    c.drawString(x + 24, top - 9, title)
+    bottom = draw_wrapped(c, description, x + 24, top - 16, width - 24,
+                          font_size=7.5, leading=9.7, color=MUTED, max_lines=2)
+    return bottom - 9
+
+
+def draw_capability(c, title, text, x, top, width):
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 8.1)
+    c.drawString(x, top - 8, title)
+    return draw_wrapped(c, text, x, top - 12, width, font_size=7.25,
+                        leading=9.3, color=MUTED, max_lines=3) - 8
+
+
+def build_resume():
+    width, height = A4
+    c = canvas.Canvas(str(OUTPUT), pagesize=A4, pageCompression=1)
+    c.setTitle("LIANG CHUN HAO - Security Technology Resume")
+    c.setAuthor("LIANG CHUN HAO")
+    c.setSubject("Internship resume for pentesting, cloud security, and network security")
+    c.setCreator("LIANG CHUN HAO Portfolio")
+
+    c.setFillColor(PAPER)
+    c.rect(0, 0, width, height, fill=1, stroke=0)
+
+    margin = 34
+    content_width = width - margin * 2
+    header_top = height - 28
+    header_height = 114
+    header_bottom = header_top - header_height
+
+    c.setFillColor(INK)
+    c.roundRect(margin, header_bottom, content_width, header_height, 8, fill=1, stroke=0)
+
+    left = margin + 20
+    c.setFillColor(WHITE)
+    c.setFont("Helvetica-Bold", 25)
+    c.drawString(left, header_top - 34, "LIANG CHUN HAO")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(left, header_top - 55, "SECURITY TECHNOLOGY STUDENT")
+    c.setFillColor(HexColor("#D5D5CC"))
+    c.setFont("Helvetica", 7.7)
+    c.drawString(left, header_top - 72, "Pentesting  /  Cloud Security  /  Network Security")
+
+    c.setFillColor(LIME)
+    c.circle(left + 3, header_bottom + 16, 3, fill=1, stroke=0)
+    c.setFillColor(WHITE)
+    c.setFont("Courier-Bold", 6.7)
+    c.drawString(left + 12, header_bottom + 13.5, "OPEN TO 2026 INTERNSHIP OPPORTUNITIES")
+
+    contact_right = margin + content_width - 20
+    contact_top = header_top - 25
+    contacts = [
+        ("chunhao021223@icloud.com", "mailto:chunhao021223@icloud.com"),
+        ("github.com/HAO02-CYBER", "https://github.com/HAO02-CYBER"),
+        ("liang-chun-hao-security-portfolio.vercel.app", "https://liang-chun-hao-security-portfolio.vercel.app/"),
+        ("WhatsApp  +60 10-362 3937", "https://wa.me/60103623937"),
     ]
+    c.setFont("Helvetica", 7.2)
+    for index, (label, url) in enumerate(contacts):
+        y = contact_top - index * 15
+        label_width = pdfmetrics.stringWidth(label, "Helvetica", 7.2)
+        x = contact_right - label_width
+        c.setFillColor(HexColor("#E7E7DF"))
+        c.drawString(x, y, label)
+        c.linkURL(url, (x, y - 2, contact_right, y + 8), relative=0)
 
+    profile_top = header_bottom - 18
+    draw_label(c, "Profile / 01", margin, profile_top)
+    profile = (
+        "Security Technology undergraduate seeking an internship in penetration testing, cloud security, or network security. "
+        "Building practical foundations in vulnerability assessment, least-privilege review, malware behavior analysis, "
+        "cryptography, and clear security documentation."
+    )
+    draw_wrapped(c, profile, margin, profile_top - 13, content_width, font_size=8.6,
+                 leading=11.8, color=INK, max_lines=3)
 
-def build():
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    doc = SimpleDocTemplate(
-        str(OUTPUT),
-        pagesize=A4,
-        rightMargin=15 * mm,
-        leftMargin=15 * mm,
-        topMargin=12 * mm,
-        bottomMargin=9 * mm,
-        title="LIANG CHUN HAO - Security Technology Resume",
-        author="LIANG CHUN HAO",
+    metric_top = profile_top - 59
+    draw_label(c, "Academic proof / 02", margin, metric_top)
+    metric_top -= 17
+    c.setFillColor(SOFT)
+    c.roundRect(margin, metric_top - 72, content_width, 72, 7, fill=1, stroke=0)
+    gap = 7
+    metric_width = (content_width - 16 - gap * 2) / 3
+    metric_x = margin + 8
+    draw_metric(c, metric_x, metric_top - 4, metric_width, "Current CGPA", "3.79", "B.IT (Hons.)")
+    draw_metric(c, metric_x + metric_width + gap, metric_top - 4, metric_width, "Dean's List", "2x", "2025")
+    draw_metric(c, metric_x + (metric_width + gap) * 2, metric_top - 4, metric_width, "MUET Band", "4.0", "CEFR B2")
+
+    columns_top = metric_top - 91
+    left_width = 322
+    column_gap = 22
+    right_x = margin + left_width + column_gap
+    right_width = content_width - left_width - column_gap
+
+    y_left = draw_label(c, "Selected security labs / 03", margin, columns_top)
+    y_left = draw_entry(c, "01", "Vulnerability Assessment", "Reconnaissance, weakness validation, risk rating, and remediation evidence writing.", margin, y_left, left_width)
+    y_left = draw_entry(c, "02", "Cloud Security Baseline", "Identity, storage, network exposure, logging, and least-privilege review.", margin, y_left, left_width)
+    y_left = draw_entry(c, "03", "Malware Behavior Analysis", "Suspicious behavior, indicators, persistence ideas, and defensive observations.", margin, y_left, left_width)
+
+    draw_rule(c, margin, y_left + 1, left_width)
+    y_left -= 13
+    y_left = draw_label(c, "Experience / 04", margin, y_left)
+
+    c.setFillColor(MUTED)
+    c.setFont("Courier-Bold", 6.7)
+    c.drawString(margin, y_left - 8, "2023 - 2024  /  SINGAPORE")
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 9.2)
+    c.drawString(margin, y_left - 23, "IT Support")
+    y_left = draw_wrapped(c, "Technical troubleshooting, device readiness, and day-to-day user support in a professional environment.", margin, y_left - 28, left_width, font_size=7.5, leading=9.7, color=MUTED, max_lines=2) - 12
+
+    c.setFillColor(MUTED)
+    c.setFont("Courier-Bold", 6.7)
+    c.drawString(margin, y_left - 8, "2022 - 2023  /  SINGAPORE")
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 9.2)
+    c.drawString(margin, y_left - 23, "Administrative Assistant")
+    y_left = draw_wrapped(c, "Operational coordination, documentation, and accurate communication with consistent follow-through.", margin, y_left - 28, left_width, font_size=7.5, leading=9.7, color=MUTED, max_lines=2) - 8
+
+    y_right = draw_label(c, "Education / 05", right_x, columns_top)
+    c.setFillColor(INK)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(right_x, y_right - 8, "MULTIMEDIA UNIVERSITY")
+    y_right = draw_wrapped(c, "Bachelor of Information Technology (Honours), Security Technology", right_x, y_right - 13, right_width, font_size=7.4, leading=9.6, color=MUTED, max_lines=3) - 8
+
+    draw_rule(c, right_x, y_right + 1, right_width)
+    y_right -= 13
+    y_right = draw_label(c, "Core capabilities / 06", right_x, y_right)
+    y_right = draw_capability(c, "Pentesting foundations", "Reconnaissance, validation, risk rating, remediation notes", right_x, y_right, right_width)
+    y_right = draw_capability(c, "Cloud and network", "Identity, least privilege, storage exposure, logging, baselines", right_x, y_right, right_width)
+    y_right = draw_capability(c, "Analysis and defense", "Malware indicators, persistence ideas, defensive signals", right_x, y_right, right_width)
+    y_right = draw_capability(c, "Security principles", "Hashing, encryption, authentication, key handling", right_x, y_right, right_width)
+
+    draw_rule(c, right_x, y_right + 1, right_width)
+    y_right -= 13
+    y_right = draw_label(c, "Relevant study / 07", right_x, y_right)
+    y_right = draw_wrapped(c, "Ethical Hacking / Applied Cryptography / Digital Forensics / Computer Security / Cybersecurity Law", right_x, y_right - 1, right_width, font_size=7.35, leading=9.8, color=INK, max_lines=5) - 10
+
+    draw_rule(c, right_x, y_right + 1, right_width)
+    y_right -= 13
+    y_right = draw_label(c, "Activities / 08", right_x, y_right)
+    draw_wrapped(c, "PROSOLVE National 2025 / Infineon Interview Event volunteer / MMU IT Club / Dragon Boat Club", right_x, y_right - 1, right_width, font_size=7.35, leading=9.8, color=INK, max_lines=5)
+
+    footer_y = 25
+    c.setFillColor(INK)
+    c.roundRect(margin, footer_y, content_width, 28, 6, fill=1, stroke=0)
+    c.setFillColor(WHITE)
+    c.setFont("Courier-Bold", 6.5)
+    c.drawString(margin + 13, footer_y + 10, "PORTFOLIO / 2026")
+    footer_url = "liang-chun-hao-security-portfolio.vercel.app"
+    c.setFont("Helvetica-Bold", 6.9)
+    c.drawRightString(margin + content_width - 13, footer_y + 10, footer_url)
+    url_width = pdfmetrics.stringWidth(footer_url, "Helvetica-Bold", 6.9)
+    c.linkURL(
+        "https://liang-chun-hao-security-portfolio.vercel.app/",
+        (margin + content_width - 13 - url_width, footer_y + 7, margin + content_width - 13, footer_y + 19),
+        relative=0,
     )
 
-    sample = getSampleStyleSheet()
-    styles = {
-        "name": ParagraphStyle("Name", parent=sample["Heading1"], fontName="Helvetica-Bold", fontSize=23, leading=25, textColor=colors.white, spaceAfter=1),
-        "target": ParagraphStyle("Target", parent=sample["BodyText"], fontName="Helvetica-Bold", fontSize=8.4, leading=10, textColor=PALE, tracking=0.35),
-        "contact": ParagraphStyle("Contact", parent=sample["BodyText"], fontName="Helvetica", fontSize=8.1, leading=10.5, textColor=colors.white, alignment=2),
-        "summary": ParagraphStyle("Summary", parent=sample["BodyText"], fontName="Helvetica", fontSize=9.15, leading=12.1, textColor=TEXT),
-        "section": ParagraphStyle("Section", parent=sample["Heading2"], fontName="Helvetica-Bold", fontSize=8.05, leading=9.5, textColor=ACCENT, tracking=0.55),
-        "role": ParagraphStyle("Role", parent=sample["BodyText"], fontName="Helvetica-Bold", fontSize=9.2, leading=11.1, textColor=INK),
-        "meta": ParagraphStyle("Meta", parent=sample["BodyText"], fontName="Helvetica-Bold", fontSize=7.7, leading=9.4, textColor=MUTED, tracking=0.2),
-        "body": ParagraphStyle("Body", parent=sample["BodyText"], fontName="Helvetica", fontSize=8, leading=9.75, textColor=TEXT, spaceAfter=0.8),
-        "small": ParagraphStyle("Small", parent=sample["BodyText"], fontName="Helvetica", fontSize=7.85, leading=9.6, textColor=TEXT),
-        "skill": ParagraphStyle("Skill", parent=sample["BodyText"], fontName="Helvetica", fontSize=8, leading=10.1, textColor=TEXT),
-    }
-
-    story = []
-    header = Table(
-        [[
-            [p("LIANG CHUN HAO", styles["name"]), p("SECURITY TECHNOLOGY STUDENT | PENTESTING | CLOUD SECURITY | NETWORK SECURITY", styles["target"])],
-            p("chunhao021223@icloud.com<br/>+60 10-362 3937<br/>github.com/HAO02-CYBER", styles["contact"]),
-        ]],
-        colWidths=[118 * mm, 61 * mm],
-        rowHeights=[26 * mm],
-    )
-    header.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), INK),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (0, 0), 7 * mm),
-        ("RIGHTPADDING", (0, 0), (0, 0), 3 * mm),
-        ("LEFTPADDING", (1, 0), (1, 0), 3 * mm),
-        ("RIGHTPADDING", (1, 0), (1, 0), 7 * mm),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    story.extend([header, Spacer(1, 3 * mm), HRFlowable(width="100%", thickness=1.3, color=ACCENT)])
-
-    story += section("Profile", styles)
-    story.append(p(
-        "Security Technology undergraduate seeking an internship in penetration testing, cloud security, or network security. Practical foundations include vulnerability assessment, least-privilege reviews, cryptography, malware behavior analysis, and clear security documentation.",
-        styles["summary"],
-    ))
-
-    story += section("Education", styles)
-    story.append(p("MULTIMEDIA UNIVERSITY, Faculty of Information Science & Technology", styles["role"]))
-    story.append(p("Bachelor of Information Technology (Honours), Security Technology", styles["meta"]))
-    education = Table([
-        [p("CURRENT CGPA", styles["meta"]), p("3.79", styles["role"]), p("ACADEMIC RECOGNITION", styles["meta"]), p("Dean's List, 2x", styles["role"])],
-        [p("RELEVANT STUDY", styles["meta"]), p("Ethical Hacking, Applied Cryptography, Digital Forensics, Computer Security, Cybersecurity Law", styles["small"]), "", ""],
-    ], colWidths=[27 * mm, 35 * mm, 40 * mm, 77 * mm])
-    education.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PALE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("SPAN", (1, 1), (3, 1)),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.2 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2 * mm),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.35, LINE),
-    ]))
-    story.extend([Spacer(1, 1.4 * mm), education])
-
-    story += section("Security Capabilities", styles)
-    skills = Table([
-        [p("<b>Pentesting Foundations</b><br/>Reconnaissance, weakness validation, risk rating, remediation notes", styles["skill"]), p("<b>Cloud and Network Security</b><br/>Identity, least privilege, storage, exposure, logging, baseline reviews", styles["skill"])],
-        [p("<b>Analysis and Defense</b><br/>Malware behavior indicators, persistence ideas, defensive signals", styles["skill"]), p("<b>Security Principles</b><br/>Hashing, encryption, authentication, key handling, cybersecurity law", styles["skill"])],
-    ], colWidths=[89.5 * mm, 89.5 * mm])
-    skills.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOX", (0, 0), (-1, -1), 0.5, LINE), ("INNERGRID", (0, 0), (-1, -1), 0.35, LINE),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.4 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.4 * mm),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-    ]))
-    story.append(skills)
-
-    story += section("Selected Security Labs", styles)
-    labs = [
-        ("Vulnerability Assessment Lab", "Reconnaissance, weakness validation, risk rating, and remediation evidence writing."),
-        ("Cloud Security Baseline Study", "Identity, storage, network exposure, logging, and least-privilege reviews."),
-        ("Malware Behavior Analysis Notes", "Suspicious behavior, indicators, persistence ideas, and defensive observations."),
-    ]
-    for title, detail in labs:
-        story.extend([p(title, styles["role"]), p(detail, styles["body"])])
-
-    story += section("Experience", styles)
-    experience = Table([
-        [p("2023 - 2024", styles["meta"]), p("IT Support | Singapore", styles["role"])],
-        ["", p("Supported technical troubleshooting, device readiness, and day-to-day user assistance in a professional environment.", styles["body"])],
-        [p("2022 - 2023", styles["meta"]), p("Administrative Assistant | Singapore", styles["role"])],
-        ["", p("Handled operational coordination, documentation, and clear communication with accuracy and follow-through.", styles["body"])],
-    ], colWidths=[29 * mm, 150 * mm])
-    experience.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2 * mm),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    story.append(experience)
-
-    story += section("Additional Evidence", styles)
-    evidence = Table([
-        [p("MUET", styles["meta"]), p("4.0 | CEFR B2", styles["small"]), p("ACTIVITIES", styles["meta"]), p("PROSOLVE NATIONAL 2025 | Infineon Interview Event volunteer | MMU IT Club and Dragon Boat Club", styles["small"])],
-    ], colWidths=[33 * mm, 47 * mm, 35 * mm, 64 * mm])
-    evidence.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f5f8f8")), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.1 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.1 * mm),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-    ]))
-    story.append(evidence)
-
-    doc.build(story)
+    c.showPage()
+    c.save()
     print(OUTPUT)
 
 
 if __name__ == "__main__":
-    build()
+    build_resume()
